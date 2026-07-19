@@ -14,7 +14,7 @@ router = APIRouter(prefix="/v1", tags=["scanner"])
 @router.post("/heartbeat")
 async def heartbeat(body: HeartbeatRequest, db: AsyncSession = Depends(get_db)):
     try:
-        await upsert_heartbeat(db, body.scanner_id, body.secret, body.payload)
+        await upsert_heartbeat(db, body.scanner_id, body.secret, body.payload, body.wifi_ssid)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except Exception as exc:

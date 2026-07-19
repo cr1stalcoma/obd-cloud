@@ -36,7 +36,8 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     await message.answer(
         "OBD Cloud Scanner\n\n"
         "1) Введи код сканера (например 565300)\n"
-        "2) Затем добавь Cursor API key\n\n"
+        "2) Подключи ESP к Wi‑Fi через точку OBD-<код>\n"
+        "3) Затем добавь Cursor API key\n\n"
         "Команды:\n"
         "/status — статус сканера\n"
         "/reconnect — обновить связь (без повторной настройки)\n"
@@ -65,8 +66,10 @@ async def on_scanner_id(message: Message, state: FSMContext) -> None:
     await state.set_state(Onboarding.cursor_key)
     await message.answer(
         f"Сканер {scanner_id} привязан.\n\n"
+        f"Wi‑Fi настройка: подключись к точке *OBD-{scanner_id}*, открой captive portal и укажи домашнюю сеть.\n\n"
         "Теперь отправь Cursor API key (сообщение будет удалено).\n"
-        "Ключ: Cursor Dashboard → Integrations"
+        "Ключ: Cursor Dashboard → Integrations",
+        parse_mode="Markdown",
     )
 
 

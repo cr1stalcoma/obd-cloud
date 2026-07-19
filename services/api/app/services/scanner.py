@@ -51,6 +51,7 @@ async def upsert_heartbeat(
     scanner_id: str,
     secret: str,
     payload: dict[str, Any],
+    wifi_ssid: str | None = None,
 ) -> None:
     scanner = await db.get(Scanner, scanner_id)
     if scanner is None:
@@ -75,6 +76,8 @@ async def upsert_heartbeat(
     status.coolant_c = payload.get("coolant_c")
     status.dtc_stored = payload.get("dtc_stored") or []
     status.dtc_pending = payload.get("dtc_pending") or []
+    if wifi_ssid:
+        status.wifi_ssid = wifi_ssid
     status.raw_payload = payload
     status.updated_at = datetime.now(UTC)
 
@@ -141,6 +144,8 @@ def format_obd_context(scanner_id: str, status: ScannerStatus | None, state: Sca
         f"Состояние: {state.value} (online=связь с облаком есть, on_car=ECU ответила)",
         f"Обновлено: {status.updated_at.isoformat()}",
     ]
+    if status.wifi_ssid:
+        lines.append(f"Wi‑Fi: {status.wifi_ssid}")
 
     payload = status.raw_payload or {}
     msg_type = payload.get("type")
@@ -182,7 +187,7 @@ async def ask_for_user(db: AsyncSession, telegram_id: int, question: str) -> str
     status = await db.get(ScannerStatus, user.scanner_id)
     state = effective_state(status)
     if state == ScannerState.offline:
-        return "Сканер offline — нет связи с облаком. Запусти мост на ПК (obd_bridge.py) и ESP по USB."
+        return "Сканер offline — нет связи с облаком. Проверь Wi‑Fi на ESP или мост на ПК."
 
     obd_block = format_obd_context(user.scanner_id, status, state)
 
@@ -208,6 +213,8 @@ def format_status(scanner_id: str, status: ScannerStatus | None) -> str:
     }
     lines = [f"Сканер *{scanner_id}*", icons.get(state, state.value)]
     if status and state != ScannerState.offline:
+        if status.wifi_ssid:
+            lines.append(f"Wi‑Fi: `{status.wifi_ssid}`")
         if status.vin:
             lines.append(f"VIN: `{status.vin}`")
         if status.manufacturer:

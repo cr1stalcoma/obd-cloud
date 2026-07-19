@@ -7,6 +7,7 @@ class HeartbeatRequest(BaseModel):
     scanner_id: str = Field(min_length=3, max_length=32)
     secret: str = Field(min_length=8, max_length=128)
     payload: dict[str, Any]
+    wifi_ssid: str | None = Field(default=None, max_length=64)
 
 
 class PairRequest(BaseModel):
