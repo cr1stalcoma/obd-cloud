@@ -66,10 +66,7 @@ async def bot_session(telegram_id: int, db: AsyncSession = Depends(get_db), _: N
 
         status = await db.get(ScannerStatus, user.scanner_id)
         status_text = format_status(user.scanner_id, status)
-        cursor_line = "Cursor API: сохранён" if user.cursor_key_valid else "Cursor API: не задан — /cursor"
-
-        text = f"{cursor_line}\n\n{status_text}"
-        return {"ready": True, "text": text, "scanner_id": user.scanner_id, "cursor_ok": user.cursor_key_valid}
+        return {"ready": True, "text": status_text, "scanner_id": user.scanner_id, "cursor_ok": user.cursor_key_valid}
     except Exception:
         logger.exception("bot_session failed telegram_id=%s", telegram_id)
         raise HTTPException(status_code=500, detail="session failed") from None
