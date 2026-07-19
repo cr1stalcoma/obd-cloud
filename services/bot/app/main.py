@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+import httpx
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
@@ -134,7 +135,17 @@ async def main() -> None:
     dp.message.register(on_cursor_key, Onboarding.cursor_key)
     dp.message.register(cmd_ask, F.text.startswith("/ask "))
 
-    logger.info("bot started")
+    me = await bot.get_me()
+    await bot.delete_webhook(drop_pending_updates=True)
+    logger.info("bot started as @%s, polling (webhook cleared)", me.username)
+
+    async with httpx.AsyncClient(base_url=settings.api_base_url, timeout=10.0) as client:
+        try:
+            health = await client.get("/health")
+            logger.info("api reachable: %s %s", health.status_code, health.text[:80])
+        except httpx.HTTPError as exc:
+            logger.error("api not reachable at %s: %s", settings.api_base_url, exc)
+
     await dp.start_polling(bot)
 
 
