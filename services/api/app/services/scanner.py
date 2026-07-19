@@ -230,19 +230,19 @@ async def ask_for_user(db: AsyncSession, telegram_id: int, question: str) -> str
 
 def format_status(scanner_id: str, status: ScannerStatus | None) -> str:
     state = effective_state(status)
-    icons = {
-        ScannerState.offline: "⚫ offline",
-        ScannerState.waiting: "🟡 online",
-        ScannerState.on_car: "🟢 online",
-        ScannerState.error: "🔴 ошибка",
+    state_lines = {
+        ScannerState.offline: "⚫ Не в сети",
+        ScannerState.waiting: "🟡 Активен, ожидание авто",
+        ScannerState.on_car: "🟢 Подключён к авто",
+        ScannerState.error: "🔴 Ошибка",
     }
-    lines = [f"Сканер *{scanner_id}*", icons.get(state, state.value)]
+    lines = [f"Сканер #{scanner_id}", state_lines.get(state, state.value)]
 
     if status is None or state == ScannerState.offline:
         return "\n".join(lines)
 
     if status.wifi_ssid:
-        lines.append(f"Wi‑Fi: `{status.wifi_ssid}`")
+        lines.append(f"Wi‑Fi: {status.wifi_ssid}")
 
     payload = status.raw_payload or {}
     can_ok = can_ecu_connected(status)
@@ -254,7 +254,7 @@ def format_status(scanner_id: str, status: ScannerStatus | None) -> str:
         if manufacturer:
             lines.append(f"Марка авто: {manufacturer}")
         if vin:
-            lines.append(f"VIN: `{vin}`")
+            lines.append(f"VIN: {vin}")
         blocks = blocks_from_payload(payload)
         if blocks:
             lines.append(f"Блоки: {', '.join(blocks)}")
