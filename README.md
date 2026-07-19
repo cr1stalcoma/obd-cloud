@@ -37,11 +37,19 @@ git push -u origin main
 
 3. **Rotate Telegram bot token** if it was exposed in chat (@BotFather → Revoke).
 
-4. Nginx (alongside existing lexora site):
+4. Nginx + SSL (**сначала DNS**, потом скрипт):
    ```bash
-   sudo cp deploy/nginx-obd.lexora.by.conf /etc/nginx/sites-available/obd.lexora.by
-   sudo ln -sf /etc/nginx/sites-available/obd.lexora.by /etc/nginx/sites-enabled/
-   sudo certbot certonly --nginx -d obd.lexora.by
+   # У регистратора: A-запись obd.lexora.by -> 185.244.50.80
+   dig +short obd.lexora.by   # должен показать IP
+
+   cd ~/obd-cloud
+   git pull
+   sudo bash scripts/setup-nginx.sh
+   ```
+
+   Если nginx уже сломан (cert not found), восстанови HTTP-конфиг:
+   ```bash
+   sudo cp ~/obd-cloud/deploy/nginx-obd.lexora.by.init.conf /etc/nginx/sites-available/obd.lexora.by
    sudo nginx -t && sudo systemctl reload nginx
    ```
 
