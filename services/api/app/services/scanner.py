@@ -234,41 +234,39 @@ def _tg_html(text: str) -> str:
 
 
 def format_status(scanner_id: str, status: ScannerStatus | None) -> str:
-    """Telegram HTML — blockquote, <code> for tap-to-copy SSID/VIN."""
+    """Telegram HTML — ключ: значение в одной строке, эмоджi справа."""
     state = effective_state(status)
     state_lines = {
-        ScannerState.offline: "⚫  Не в сети",
-        ScannerState.waiting: "🟡  Активен, ожидание авто",
-        ScannerState.on_car: "🟢  Подключён к авто",
-        ScannerState.error: "🔴  Ошибка",
+        ScannerState.offline: ("Не в сети", "⚫"),
+        ScannerState.waiting: ("Активен, ожидание авто", "🟡"),
+        ScannerState.on_car: ("Подключён к авто", "🟢"),
+        ScannerState.error: ("Ошибка", "🔴"),
     }
-    blocks: list[str] = [
+    label, emoji = state_lines.get(state, (state.value, ""))
+    lines: list[str] = [
         f"<b>Сканер #{_tg_html(scanner_id)}</b>",
-        f"<blockquote>{state_lines.get(state, _tg_html(state.value))}</blockquote>",
+        f"Статус: {_tg_html(label)}  {emoji}",
     ]
 
     if status is None or state == ScannerState.offline:
-        return "\n\n".join(blocks)
+        return "\n\n".join(lines)
 
     if status.wifi_ssid:
-        blocks.append(f"<b>Wi‑Fi</b>\n<code>{_tg_html(status.wifi_ssid)}</code>")
+        lines.append(f"Wi‑Fi: <code>{_tg_html(status.wifi_ssid)}</code>")
 
     payload = status.raw_payload or {}
     can_ok = can_ecu_connected(status)
-    blocks.append(f"<b>CAN</b>\n{'✅' if can_ok else '❌'}")
+    lines.append(f"CAN: {'✅' if can_ok else '❌'}")
 
     if can_ok:
-        car: list[str] = []
         manufacturer = payload.get("manufacturer") or status.manufacturer
         vin = payload.get("vin") or status.vin
         if manufacturer:
-            car.append(f"<b>Марка авто</b>\n{_tg_html(manufacturer)}")
+            lines.append(f"Марка авто: {_tg_html(manufacturer)}")
         if vin:
-            car.append(f"<b>VIN</b>\n<code>{_tg_html(vin)}</code>")
+            lines.append(f"VIN: <code>{_tg_html(vin)}</code>")
         block_list = blocks_from_payload(payload)
         if block_list:
-            car.append(f"<b>Блоки</b>\n{_tg_html(', '.join(block_list))}")
-        if car:
-            blocks.append("\n\n".join(car))
+            lines.append(f"Блоки: {_tg_html(', '.join(block_list))}")
 
-    return "\n\n".join(blocks)
+    return "\n\n".join(lines)
