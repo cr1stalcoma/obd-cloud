@@ -25,7 +25,12 @@ class Onboarding(StatesGroup):
 
 async def cmd_start(message: Message, state: FSMContext) -> None:
     await state.clear()
-    session = await api.reconnect(message.from_user.id)
+    try:
+        session = await api.reconnect(message.from_user.id)
+    except httpx.HTTPStatusError:
+        logger.exception("reconnect failed on /start")
+        await message.answer("API временно недоступен. Попробуй /status через минуту.")
+        return
     if "Сессия пустая" not in session:
         await message.answer(
             session + "\n\nКоманды: /status /ask /reconnect /cursor",
@@ -94,13 +99,23 @@ async def on_cursor_key(message: Message, state: FSMContext) -> None:
 
 async def cmd_status(message: Message, state: FSMContext) -> None:
     await state.clear()
-    text = await api.status(message.from_user.id)
+    try:
+        text = await api.status(message.from_user.id)
+    except httpx.HTTPStatusError:
+        logger.exception("status failed")
+        await message.answer("Не удалось получить статус. API перезапускается?")
+        return
     await message.answer(text, parse_mode="Markdown")
 
 
 async def cmd_reconnect(message: Message, state: FSMContext) -> None:
     await state.clear()
-    text = await api.reconnect(message.from_user.id)
+    try:
+        text = await api.reconnect(message.from_user.id)
+    except httpx.HTTPStatusError:
+        logger.exception("reconnect failed")
+        await message.answer("Не удалось переподключиться. Попробуй позже.")
+        return
     await message.answer(text, parse_mode="Markdown")
 
 

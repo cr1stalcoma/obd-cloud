@@ -40,7 +40,6 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-obd}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-obd_cloud}
       REDIS_URL: redis://redis:6379/0
       RUN_MIGRATIONS: "true"
     ports:
