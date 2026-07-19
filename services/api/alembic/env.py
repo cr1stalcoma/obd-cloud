@@ -15,24 +15,19 @@ target_metadata = Base.metadata
 
 
 def migration_url() -> str:
-    url = os.environ.get("DATABASE_URL", "").strip()
-    if url.startswith("postgresql+asyncpg"):
-        url = url.replace("postgresql+asyncpg", "postgresql+psycopg2", 1)
-    elif url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    """Always use POSTGRES_* from env_file — never stale DATABASE_URL (often user postgres)."""
+    user = os.environ.get("POSTGRES_USER") or "obd"
+    password = os.environ.get("POSTGRES_PASSWORD") or ""
+    db = os.environ.get("POSTGRES_DB") or "obd_cloud"
+    host = os.environ.get("POSTGRES_HOST") or "postgres"
 
-    user = os.environ.get("POSTGRES_USER", "obd")
-    password = os.environ.get("POSTGRES_PASSWORD", "")
-    db = os.environ.get("POSTGRES_DB", "obd_cloud")
-    host = os.environ.get("POSTGRES_HOST", "postgres")
+    if not password:
+        raise RuntimeError(
+            "POSTGRES_PASSWORD missing in api container. "
+            "Set it in ~/obd-cloud/.env and remove any DATABASE_URL= line from .env."
+        )
 
-    if password:
-        return f"postgresql+psycopg2://{quote_plus(user)}:{quote_plus(password)}@{host}:5432/{db}"
-
-    if url:
-        return url
-
-    raise RuntimeError("Set POSTGRES_PASSWORD or DATABASE_URL for Alembic migrations")
+    return f"postgresql+psycopg2://{quote_plus(user)}:{quote_plus(password)}@{host}:5432/{db}"
 
 
 config.set_main_option("sqlalchemy.url", migration_url())

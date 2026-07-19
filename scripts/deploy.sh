@@ -21,8 +21,9 @@ if [ "$missing" -ne 0 ]; then
 fi
 
 if grep -q '^DATABASE_URL=' .env 2>/dev/null; then
-  echo "WARNING: Remove DATABASE_URL from .env — compose builds it from POSTGRES_USER/PASSWORD."
-  echo "         A stale DATABASE_URL often causes: password authentication failed for user postgres"
+  echo "ERROR: Remove DATABASE_URL from .env — it overrides compose and breaks Alembic."
+  echo "       Keep only POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB."
+  exit 1
 fi
 
 pg_user="$(grep -E '^POSTGRES_USER=' .env | head -1 | cut -d= -f2- | tr -d '\r\"' | xargs)"
