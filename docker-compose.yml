@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: obd-cloud-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-obd}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-obd_cloud}
+    volumes:
+      - obd_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-obd} -d ${POSTGRES_DB:-obd_cloud}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - obd_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: obd-cloud-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - obd_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - obd_net
+
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    container_name: obd-cloud-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-obd}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-obd_cloud}
+      REDIS_URL: redis://redis:6379/0
+      RUN_MIGRATIONS: "true"
+    ports:
+      - "127.0.0.1:8100:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - obd_net
+
+  bot:
+    build:
+      context: ./services/bot
+      dockerfile: Dockerfile
+    container_name: obd-cloud-bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      API_BASE_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - obd_net
+
+volumes:
+  obd_pg_data:
+  obd_redis_data:
+
+networks:
+  obd_net:
+    driver: bridge
