@@ -4,6 +4,25 @@ Docker stack: **PostgreSQL + Redis + FastAPI + Telegram bot**.
 
 Subdomain: `https://obd.lexora.by` → API `:8100` on VPS.
 
+## GitHub (отдельный репозиторий)
+
+Репозиторий: `obd-cloud` (отдельный git, не часть obdmarket-by).
+
+Первый push (один раз):
+
+```bash
+gh auth login
+cd obd-cloud
+gh repo create cr1stalcoma/obd-cloud --public --source=. --remote=origin --push
+```
+
+Если репозиторий уже создан на GitHub:
+
+```bash
+git remote add origin https://github.com/cr1stalcoma/obd-cloud.git
+git push -u origin main
+```
+
 ## VPS deploy (185.244.50.80)
 
 1. DNS: `obd.lexora.by` A → `185.244.50.80`
