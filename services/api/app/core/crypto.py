@@ -2,19 +2,22 @@ from cryptography.fernet import Fernet, InvalidToken
 
 from app.core.config import settings
 
-
-class SecretBox:
-    def __init__(self, key: str) -> None:
-        self._fernet = Fernet(key.encode() if isinstance(key, str) else key)
-
-    def encrypt(self, value: str) -> str:
-        return self._fernet.encrypt(value.encode()).decode()
-
-    def decrypt(self, token: str) -> str:
-        try:
-            return self._fernet.decrypt(token.encode()).decode()
-        except InvalidToken as exc:
-            raise ValueError("invalid encrypted token") from exc
+_fernet: Fernet | None = None
 
 
-secret_box = SecretBox(settings.encryption_key)
+def _box() -> Fernet:
+    global _fernet
+    if _fernet is None:
+        _fernet = Fernet(settings.encryption_key.encode())
+    return _fernet
+
+
+def encrypt(value: str) -> str:
+    return _box().encrypt(value.encode()).decode()
+
+
+def decrypt(token: str) -> str:
+    try:
+        return _box().decrypt(token.encode()).decode()
+    except InvalidToken as exc:
+        raise ValueError("invalid encrypted token") from exc

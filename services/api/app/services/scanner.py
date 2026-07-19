@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.crypto import secret_box
+from app.core.crypto import decrypt, encrypt
 from app.models import ObdSnapshot, Scanner, ScannerState, ScannerStatus, TelegramUser
 from app.services.cursor import ask_cursor, validate_cursor_api_key
 
@@ -108,7 +108,7 @@ async def save_cursor_key(db: AsyncSession, telegram_id: int, api_key: str) -> t
     if user is None:
         return False, "Сначала привяжи сканер: /start"
 
-    user.cursor_key_enc = secret_box.encrypt(api_key.strip()) if valid else None
+    user.cursor_key_enc = encrypt(api_key.strip()) if valid else None
     user.cursor_key_valid = valid
     await db.commit()
     if valid:
@@ -147,7 +147,7 @@ async def ask_for_user(db: AsyncSession, telegram_id: int, question: str) -> str
 Вопрос пользователя:
 {question}
 """
-    api_key = secret_box.decrypt(user.cursor_key_enc)
+    api_key = decrypt(user.cursor_key_enc)
     return await ask_cursor(api_key, prompt)
 
 

@@ -16,11 +16,26 @@ down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-scanner_state = postgresql.ENUM("offline", "waiting", "on_car", "error", name="scannerstate", create_type=True)
+scanner_state = postgresql.ENUM(
+    "offline",
+    "waiting",
+    "on_car",
+    "error",
+    name="scannerstate",
+    create_type=False,
+)
 
 
 def upgrade() -> None:
-    scanner_state.create(op.get_bind(), checkfirst=True)
+    bind = op.get_bind()
+    postgresql.ENUM(
+        "offline",
+        "waiting",
+        "on_car",
+        "error",
+        name="scannerstate",
+        create_type=True,
+    ).create(bind, checkfirst=True)
 
     op.create_table(
         "scanners",
@@ -34,7 +49,7 @@ def upgrade() -> None:
     op.create_table(
         "scanner_status",
         sa.Column("scanner_id", sa.String(length=32), nullable=False),
-        sa.Column("state", scanner_state, nullable=False),
+        sa.Column("state", scanner_state, nullable=False, server_default="offline"),
         sa.Column("bitrate", sa.String(length=16), nullable=True),
         sa.Column("vin", sa.String(length=32), nullable=True),
         sa.Column("manufacturer", sa.String(length=128), nullable=True),
@@ -90,4 +105,4 @@ def downgrade() -> None:
     op.drop_table("telegram_users")
     op.drop_table("scanner_status")
     op.drop_table("scanners")
-    scanner_state.drop(op.get_bind(), checkfirst=True)
+    postgresql.ENUM(name="scannerstate").drop(op.get_bind(), checkfirst=True)
