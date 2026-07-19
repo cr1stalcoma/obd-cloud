@@ -41,10 +41,10 @@ docker compose build --pull
 docker compose up -d
 
 echo "--- waiting for API ---"
-sleep 5
+sleep 8
 if ! curl -sf http://127.0.0.1:8100/health >/dev/null; then
-  echo "API not healthy yet. Last logs:"
-  docker logs --tail 80 obd-cloud-api || true
+  echo "API not healthy. Last logs:"
+  docker logs --tail 120 obd-cloud-api 2>&1 || true
   docker compose ps
   exit 1
 fi

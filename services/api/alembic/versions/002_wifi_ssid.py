@@ -7,7 +7,6 @@ Create Date: 2026-07-19
 
 from typing import Sequence, Union
 
-import sqlalchemy as sa
 from alembic import op
 
 revision: str = "002"
@@ -17,8 +16,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("scanner_status", sa.Column("wifi_ssid", sa.String(length=64), nullable=True))
+    op.execute("ALTER TABLE scanner_status ADD COLUMN IF NOT EXISTS wifi_ssid VARCHAR(64)")
 
 
 def downgrade() -> None:
-    op.drop_column("scanner_status", "wifi_ssid")
+    op.execute("ALTER TABLE scanner_status DROP COLUMN IF EXISTS wifi_ssid")
