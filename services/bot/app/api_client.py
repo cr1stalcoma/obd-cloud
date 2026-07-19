@@ -40,6 +40,12 @@ class ApiClient:
             response.raise_for_status()
             return response.json()["text"]
 
+    async def reconnect(self, telegram_id: int) -> str:
+        async with httpx.AsyncClient(base_url=settings.api_base_url, timeout=30.0) as client:
+            response = await client.get(f"/v1/bot/session/{telegram_id}", headers=self._headers)
+            response.raise_for_status()
+            return response.json()["text"]
+
     async def ask(self, telegram_id: int, question: str) -> str:
         async with httpx.AsyncClient(base_url=settings.api_base_url, timeout=180.0) as client:
             response = await client.post(

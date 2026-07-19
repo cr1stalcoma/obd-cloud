@@ -23,6 +23,15 @@ class Onboarding(StatesGroup):
 
 
 async def cmd_start(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    session = await api.reconnect(message.from_user.id)
+    if "Сессия пустая" not in session:
+        await message.answer(
+            session + "\n\nКоманды: /status /ask /reconnect /cursor",
+            parse_mode="Markdown",
+        )
+        return
+
     await state.set_state(Onboarding.scanner_id)
     await message.answer(
         "OBD Cloud Scanner\n\n"
@@ -30,6 +39,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         "2) Затем добавь Cursor API key\n\n"
         "Команды:\n"
         "/status — статус сканера\n"
+        "/reconnect — обновить связь (без повторной настройки)\n"
         "/cursor — сменить Cursor API key\n"
         "/ask <вопрос> — спросить ИИ по данным OBD"
     )
@@ -78,8 +88,15 @@ async def on_cursor_key(message: Message, state: FSMContext) -> None:
         await wait.edit_text(result.get("message", "Ключ не принят."))
 
 
-async def cmd_status(message: Message) -> None:
+async def cmd_status(message: Message, state: FSMContext) -> None:
+    await state.clear()
     text = await api.status(message.from_user.id)
+    await message.answer(text, parse_mode="Markdown")
+
+
+async def cmd_reconnect(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    text = await api.reconnect(message.from_user.id)
     await message.answer(text, parse_mode="Markdown")
 
 
@@ -106,6 +123,8 @@ async def main() -> None:
 
     dp.message.register(cmd_start, CommandStart())
     dp.message.register(cmd_status, Command("status"))
+    dp.message.register(cmd_reconnect, Command("reconnect"))
+    dp.message.register(cmd_reconnect, Command("reload"))
     dp.message.register(cmd_cursor, Command("cursor"))
     dp.message.register(cmd_ask, Command("ask"))
     dp.message.register(on_scanner_id, Onboarding.scanner_id)
