@@ -33,8 +33,8 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         return
     if "Сессия пустая" not in session:
         await message.answer(
-            session + "\n\nКоманды: /status /ask /reconnect /cursor",
-            parse_mode="Markdown",
+            session + "\n\n<i>Команды:</i> /status  /ask  /reconnect  /cursor",
+            parse_mode="HTML",
         )
         return
 
@@ -72,10 +72,10 @@ async def on_scanner_id(message: Message, state: FSMContext) -> None:
     await state.set_state(Onboarding.cursor_key)
     await message.answer(
         f"Сканер {scanner_id} привязан.\n\n"
-        f"Wi‑Fi настройка: подключись к точке *OBD-{scanner_id}*, открой captive portal и укажи домашнюю сеть.\n\n"
+        f"Wi‑Fi настройка: подключись к точке <b>OBD-{scanner_id}</b>, открой captive portal и укажи домашнюю сеть.\n\n"
         "Теперь отправь Cursor API key (сообщение будет удалено).\n"
         "Ключ: Cursor Dashboard → Integrations",
-        parse_mode="Markdown",
+        parse_mode="HTML",
     )
 
 
@@ -92,7 +92,7 @@ async def on_cursor_key(message: Message, state: FSMContext) -> None:
 
     if result.get("ok"):
         status = await api.status(message.from_user.id)
-        await wait.edit_text(f"{result.get('message')}\n\n{status}", parse_mode="Markdown")
+        await wait.edit_text(f"{result.get('message')}\n\n{status}", parse_mode="HTML")
     else:
         await wait.edit_text(result.get("message", "Ключ не принят."))
 
@@ -105,7 +105,7 @@ async def cmd_status(message: Message, state: FSMContext) -> None:
         logger.exception("status failed")
         await message.answer("Не удалось получить статус. API перезапускается?")
         return
-    await message.answer(text, parse_mode="Markdown")
+    await message.answer(text, parse_mode="HTML")
 
 
 async def cmd_reconnect(message: Message, state: FSMContext) -> None:
@@ -116,7 +116,7 @@ async def cmd_reconnect(message: Message, state: FSMContext) -> None:
         logger.exception("reconnect failed")
         await message.answer("Не удалось переподключиться. Попробуй позже.")
         return
-    await message.answer(text, parse_mode="Markdown")
+    await message.answer(text, parse_mode="HTML")
 
 
 async def cmd_cursor(message: Message, state: FSMContext) -> None:
