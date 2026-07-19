@@ -22,9 +22,17 @@ def verify_secret(secret: str, secret_hash: str) -> bool:
         return False
 
 
-SYSTEM_PROMPT = """Ты автомобильный диагност OBD-II. Отвечай на русском, кратко и по делу.
-Используй только переданные данные сканера. Не выдумывай показания.
-Если данных нет — так и скажи."""
+SYSTEM_PROMPT = """Ты помощник в Telegram по автодиагностике.
+Пользователь использует самодельный сканер: ESP32 + MCP2515, стандартный OBD-II (Mode 01/03/07/09), без баз Autocom.
+
+Стиль ответа:
+- по-русски, как нормальный механик в чате, не как отчёт
+- без заголовков вроде «Кратко:», «Вывод:», «По данным:»
+- без markdown (**жирный**, списки) — только plain text для Telegram
+- обычно 2–4 предложения, развёрнуто — только если пользователь просит
+- только факты из блока «Данные сканера»; не придумывай VIN, обороты, коды
+
+Если сканер online, но ECU не отвечает — адаптер и облако работают, машина/зажигание/CAN пока не дали ответ."""
 
 
 def map_heartbeat_state(payload: dict[str, Any]) -> ScannerState:
@@ -124,6 +132,46 @@ async def get_user_context(db: AsyncSession, telegram_id: int) -> TelegramUser |
     return result.scalar_one_or_none()
 
 
+def format_obd_context(scanner_id: str, status: ScannerStatus | None, state: ScannerState) -> str:
+    if status is None:
+        return f"Сканер {scanner_id}: данных ещё не было."
+
+    lines = [
+        f"ID сканера: {scanner_id}",
+        f"Состояние: {state.value} (online=связь с облаком есть, on_car=ECU ответила)",
+        f"Обновлено: {status.updated_at.isoformat()}",
+    ]
+
+    payload = status.raw_payload or {}
+    msg_type = payload.get("type")
+
+    if msg_type == "obd_error":
+        lines.append("С ESP/CAN: ECU пока не отвечает на шину.")
+        lines.append(f"Сообщение: {payload.get('message', 'unknown')}")
+        if payload.get("hint"):
+            lines.append(f"Hint: {payload['hint']}")
+    elif msg_type == "obd_snapshot":
+        lines.append(f"CAN bitrate: {payload.get('bitrate') or status.bitrate or '?'}")
+        if payload.get("vin") or status.vin:
+            lines.append(f"VIN: {payload.get('vin') or status.vin}")
+        if payload.get("manufacturer") or status.manufacturer:
+            lines.append(f"Марка (WMI): {payload.get('manufacturer') or status.manufacturer}")
+        rpm = payload.get("rpm") if payload.get("rpm") is not None else status.rpm
+        if rpm is not None:
+            lines.append(
+                f"Live: RPM={rpm}, speed={payload.get('speed_kmh', status.speed_kmh)} km/h, "
+                f"coolant={payload.get('coolant_c', status.coolant_c)} °C"
+            )
+        stored = payload.get("dtc_stored") or status.dtc_stored or []
+        pending = payload.get("dtc_pending") or status.dtc_pending or []
+        lines.append(f"DTC stored: {', '.join(stored) if stored else 'нет'}")
+        lines.append(f"DTC pending: {', '.join(pending) if pending else 'нет'}")
+    else:
+        lines.append(f"Сырой payload: {payload}")
+
+    return "\n".join(lines)
+
+
 async def ask_for_user(db: AsyncSession, telegram_id: int, question: str) -> str:
     user = await get_user_context(db, telegram_id)
     if user is None or not user.scanner_id:
@@ -134,21 +182,17 @@ async def ask_for_user(db: AsyncSession, telegram_id: int, question: str) -> str
     status = await db.get(ScannerStatus, user.scanner_id)
     state = effective_state(status)
     if state == ScannerState.offline:
-        return "Сканер offline. Запусти мост на ПК и подключи ESP."
+        return "Сканер offline — нет связи с облаком. Запусти мост на ПК (obd_bridge.py) и ESP по USB."
 
-    obd_block = "нет snapshot"
-    if status and status.raw_payload:
-        obd_block = str(status.raw_payload)
+    obd_block = format_obd_context(user.scanner_id, status, state)
 
     prompt = f"""{SYSTEM_PROMPT}
 
-Данные OBD snapshot:
+--- Данные сканера (реальные, с VPS) ---
 {obd_block}
+--- конец данных ---
 
-Состояние сканера: {state.value}
-
-Вопрос пользователя:
-{question}
+Вопрос пользователя: {question}
 """
     api_key = decrypt(user.cursor_key_enc)
     return await ask_cursor(api_key, prompt)

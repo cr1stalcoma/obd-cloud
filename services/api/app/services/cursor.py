@@ -34,7 +34,9 @@ def _ask_sync(api_key: str, prompt: str) -> str:
         ),
     )
     if result.result:
-        return str(result.result)
+        text = str(result.result)
+        # Composer loves markdown; Telegram plain text reads better
+        return text.replace("**", "").replace("__", "")
     return f"Статус: {result.status}"
 
 
