@@ -59,7 +59,11 @@ def main() -> None:
                 elif response.status_code >= 400:
                     now = time.time()
                     if now - last_error_at > 30:
-                        print(f"heartbeat HTTP {response.status_code}: {response.text[:200]}", file=sys.stderr)
+                        detail = response.text[:300]
+                        print(
+                            f"heartbeat HTTP {response.status_code}: {detail}",
+                            file=sys.stderr,
+                        )
                         last_error_at = now
                 else:
                     kind = payload.get("type", "?")

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,19 +10,21 @@ from app.core.crypto import decrypt, encrypt
 from app.models import ObdSnapshot, Scanner, ScannerState, ScannerStatus, TelegramUser
 from app.services.cursor import ask_cursor, validate_cursor_api_key
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_secret(secret: str) -> str:
+    return bcrypt.hashpw(secret.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_secret(secret: str, secret_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(secret.encode("utf-8"), secret_hash.encode("utf-8"))
+    except ValueError:
+        return False
+
 
 SYSTEM_PROMPT = """Ты автомобильный диагност OBD-II. Отвечай на русском, кратко и по делу.
 Используй только переданные данные сканера. Не выдумывай показания.
 Если данных нет — так и скажи."""
-
-
-def hash_secret(secret: str) -> str:
-    return pwd_context.hash(secret)
-
-
-def verify_secret(secret: str, secret_hash: str) -> bool:
-    return pwd_context.verify(secret, secret_hash)
 
 
 def map_heartbeat_state(payload: dict[str, Any]) -> ScannerState:
@@ -46,6 +48,7 @@ async def upsert_heartbeat(
     if scanner is None:
         scanner = Scanner(id=scanner_id, secret_hash=hash_secret(secret))
         db.add(scanner)
+        await db.flush()
     elif not verify_secret(secret, scanner.secret_hash):
         raise PermissionError("invalid scanner secret")
 
