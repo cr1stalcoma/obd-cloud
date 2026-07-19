@@ -20,6 +20,21 @@ if [ "$missing" -ne 0 ]; then
   exit 1
 fi
 
+if grep -q '^DATABASE_URL=' .env 2>/dev/null; then
+  echo "WARNING: Remove DATABASE_URL from .env — compose builds it from POSTGRES_USER/PASSWORD."
+  echo "         A stale DATABASE_URL often causes: password authentication failed for user postgres"
+fi
+
+pg_user="$(grep -E '^POSTGRES_USER=' .env | head -1 | cut -d= -f2- | tr -d '\r\"' | xargs)"
+if [ -z "$pg_user" ]; then
+  pg_user="obd"
+fi
+if [ "$pg_user" = "postgres" ]; then
+  echo "ERROR: POSTGRES_USER=postgres but obd-cloud expects POSTGRES_USER=obd (matches existing volume)."
+  echo "       Fix .env: POSTGRES_USER=obd and POSTGRES_PASSWORD=<same as when volume was created>"
+  exit 1
+fi
+
 if ! python3 - <<'PY' 2>/dev/null; then
 from cryptography.fernet import Fernet
 import os
