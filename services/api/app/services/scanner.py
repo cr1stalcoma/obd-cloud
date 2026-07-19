@@ -135,6 +135,31 @@ async def get_user_context(db: AsyncSession, telegram_id: int) -> TelegramUser |
     return result.scalar_one_or_none()
 
 
+def can_ecu_connected(status: ScannerStatus | None) -> bool:
+    if status is None:
+        return False
+    payload = status.raw_payload or {}
+    if payload.get("type") == "obd_error":
+        return False
+    if payload.get("type") == "obd_snapshot":
+        return bool(payload.get("vin")) or payload.get("rpm") is not None
+    return status.state == ScannerState.on_car
+
+
+def blocks_from_payload(payload: dict[str, Any]) -> list[str]:
+    blocks = payload.get("blocks")
+    if isinstance(blocks, list):
+        cleaned = [str(b).strip() for b in blocks if b]
+        if cleaned:
+            return cleaned[:8]
+    out: list[str] = []
+    if payload.get("vin"):
+        out.append("ECU")
+    if payload.get("rpm") is not None:
+        out.append("Двигатель")
+    return out
+
+
 def format_obd_context(scanner_id: str, status: ScannerStatus | None, state: ScannerState) -> str:
     if status is None:
         return f"Сканер {scanner_id}: данных ещё не было."
@@ -207,24 +232,31 @@ def format_status(scanner_id: str, status: ScannerStatus | None) -> str:
     state = effective_state(status)
     icons = {
         ScannerState.offline: "⚫ offline",
-        ScannerState.waiting: "🟡 включён, ждёт авто",
-        ScannerState.on_car: "🟢 подключён к авто",
+        ScannerState.waiting: "🟡 online",
+        ScannerState.on_car: "🟢 online",
         ScannerState.error: "🔴 ошибка",
     }
     lines = [f"Сканер *{scanner_id}*", icons.get(state, state.value)]
-    if status and state != ScannerState.offline:
-        if status.wifi_ssid:
-            lines.append(f"Wi‑Fi: `{status.wifi_ssid}`")
-        if status.vin:
-            lines.append(f"VIN: `{status.vin}`")
-        if status.manufacturer:
-            lines.append(f"Марка (WMI): {status.manufacturer}")
-        if status.rpm is not None:
-            lines.append(f"RPM: {status.rpm} | speed: {status.speed_kmh} km/h | coolant: {status.coolant_c} °C")
-        stored = status.dtc_stored or []
-        pending = status.dtc_pending or []
-        lines.append(f"DTC stored: {', '.join(stored) if stored else 'нет'}")
-        lines.append(f"DTC pending: {', '.join(pending) if pending else 'нет'}")
-        lines.append(f"CAN: {status.bitrate or '?'}")
-        lines.append(f"Обновлено: {status.updated_at.isoformat()}")
+
+    if status is None or state == ScannerState.offline:
+        return "\n".join(lines)
+
+    if status.wifi_ssid:
+        lines.append(f"Wi‑Fi: `{status.wifi_ssid}`")
+
+    payload = status.raw_payload or {}
+    can_ok = can_ecu_connected(status)
+    lines.append(f"CAN: {'✅' if can_ok else '❌'}")
+
+    if can_ok:
+        manufacturer = payload.get("manufacturer") or status.manufacturer
+        vin = payload.get("vin") or status.vin
+        if manufacturer:
+            lines.append(f"Марка авто: {manufacturer}")
+        if vin:
+            lines.append(f"VIN: `{vin}`")
+        blocks = blocks_from_payload(payload)
+        if blocks:
+            lines.append(f"Блоки: {', '.join(blocks)}")
+
     return "\n".join(lines)
